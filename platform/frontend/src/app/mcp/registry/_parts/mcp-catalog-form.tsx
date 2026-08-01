@@ -107,6 +107,8 @@ import {
   transformCatalogItemToFormValues,
   transformFormToApiData,
 } from "./mcp-catalog-form.utils";
+import type { McpConfigImportCandidate } from "./mcp-config-import";
+import { McpConfigImportField } from "./mcp-config-import-field";
 
 const ExternalSecretSelector = lazy(
   () =>
@@ -750,7 +752,12 @@ export function McpCatalogForm({
   const showByosOption = useFeature("byosEnabled");
 
   // Use field array for environment variables
-  const { fields, append, remove } = useFieldArray({
+  const {
+    fields,
+    append,
+    remove,
+    replace: replaceEnvironment,
+  } = useFieldArray({
     control: form.control,
     name: "localConfig.environment",
   });
@@ -780,10 +787,58 @@ export function McpCatalogForm({
     fields: additionalHeaderFields,
     append: appendAdditionalHeader,
     remove: removeAdditionalHeader,
+    replace: replaceAdditionalHeaders,
   } = useFieldArray({
     control: form.control,
     name: "additionalHeaders",
   });
+
+  const handleConfigImport = (candidate: McpConfigImportCandidate) => {
+    form.setValue("name", candidate.name, { shouldDirty: true });
+    if (candidate.description) {
+      form.setValue("description", candidate.description, {
+        shouldDirty: true,
+      });
+    }
+    form.setValue("serverType", candidate.serverType, { shouldDirty: true });
+    form.setValue("serverUrl", candidate.serverUrl ?? "", {
+      shouldDirty: true,
+    });
+    form.setValue("authMethod", "none", { shouldDirty: true });
+    form.setValue("authHeaderName", "", { shouldDirty: true });
+    replaceAdditionalHeaders(candidate.additionalHeaders);
+
+    if (candidate.serverType === "local") {
+      form.setValue("localConfig.command", candidate.command ?? "", {
+        shouldDirty: true,
+      });
+      form.setValue(
+        "localConfig.arguments",
+        candidate.arguments.length > 0
+          ? JSON.stringify(candidate.arguments, null, 2)
+          : "",
+        { shouldDirty: true },
+      );
+      form.setValue(
+        "localConfig.transportType",
+        candidate.transportType ?? "stdio",
+        { shouldDirty: true },
+      );
+      replaceEnvironment(candidate.environment);
+    } else {
+      form.setValue("localConfig.command", "", { shouldDirty: true });
+      form.setValue("localConfig.arguments", "", { shouldDirty: true });
+      replaceEnvironment([]);
+    }
+
+    form.clearErrors([
+      "name",
+      "serverUrl",
+      "localConfig.command",
+      "localConfig.arguments",
+      "localConfig.environment",
+    ]);
+  };
 
   const [headerDialog, setHeaderDialog] = useState<
     { mode: "add" } | { mode: "edit"; index: number } | null
@@ -987,6 +1042,12 @@ export function McpCatalogForm({
               </div>
             ) : null}
             {catalogButton}
+            {mode === "create" ? (
+              <McpConfigImportField
+                canImportLocal={Boolean(isLocalMcpEnabled)}
+                onImport={handleConfigImport}
+              />
+            ) : null}
 
             <div className="space-y-4">
               <div className="flex items-stretch gap-3">
@@ -1427,7 +1488,7 @@ export function McpCatalogForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Arguments (one per line)
+                          Arguments
                           <ReinstallHint show={isArgumentsDirty} />
                         </FormLabel>
                         <FormControl>
@@ -1437,6 +1498,10 @@ export function McpCatalogForm({
                             {...field}
                           />
                         </FormControl>
+                        <FormDescription>
+                          Enter one argument per line or paste a JSON array of
+                          strings.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

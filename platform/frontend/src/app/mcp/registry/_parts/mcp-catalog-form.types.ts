@@ -1,5 +1,6 @@
 import { LocalConfigFormSchema } from "@archestra/shared";
 import { z } from "zod";
+import { parseMcpArgumentsInput } from "./mcp-config-import";
 
 const HEADER_NAME_REGEX = /^[A-Za-z0-9-]+$/;
 const SSO_CALLBACK_PATH = "/api/auth/sso/callback";
@@ -219,7 +220,18 @@ export const formSchema = z
     enterpriseManagedConfig: enterpriseManagedConfigSchema
       .nullable()
       .optional(),
-    localConfig: LocalConfigFormSchema.optional(),
+    localConfig: LocalConfigFormSchema.superRefine((value, ctx) => {
+      try {
+        parseMcpArgumentsInput(value.arguments);
+      } catch (error) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            error instanceof Error ? error.message : "Arguments are not valid.",
+          path: ["arguments"],
+        });
+      }
+    }).optional(),
     // Kubernetes Deployment spec YAML (for local servers)
     deploymentSpecYaml: z.string().optional(),
     // Original YAML from API (used to detect if user modified the YAML)

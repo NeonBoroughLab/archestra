@@ -7,6 +7,41 @@ import {
 } from "./mcp-catalog-form.utils";
 
 describe("transformFormToApiData", () => {
+  it("transforms JSON array arguments without changing newline compatibility", () => {
+    const values: McpCatalogFormValues = {
+      name: "JSON Arguments MCP",
+      description: "",
+      icon: null,
+      serverType: "local",
+      serverUrl: "",
+      authMethod: "none",
+      includeBearerPrefix: true,
+      authHeaderName: "",
+      additionalHeaders: [],
+      enterpriseManagedConfig: null,
+      localConfig: {
+        command: "npx",
+        arguments: '["-y", "@example/mcp", "--verbose"]',
+        environment: [],
+        envFrom: [],
+        dockerImage: "",
+        transportType: "stdio",
+        httpPort: "",
+        httpPath: "/mcp",
+        serviceAccount: "",
+        imagePullSecrets: [],
+      },
+      scope: "personal",
+      teams: [],
+    };
+
+    expect(transformFormToApiData(values).localConfig?.arguments).toEqual([
+      "-y",
+      "@example/mcp",
+      "--verbose",
+    ]);
+  });
+
   it("maps custom auth and additional headers into userConfig", () => {
     const values: McpCatalogFormValues = {
       name: "Header MCP",

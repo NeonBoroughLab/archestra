@@ -179,6 +179,37 @@ describe("formSchema", () => {
       expect(formSchema.parse(data)).toEqual(data);
     });
 
+    it("should validate JSON array arguments and reject malformed arrays", () => {
+      const data = {
+        ...baseValidData,
+        serverType: "local" as const,
+        serverUrl: "",
+        localConfig: {
+          command: "npx",
+          arguments: '["-y", "@example/mcp"]',
+          environment: [],
+          dockerImage: "",
+          transportType: "stdio" as const,
+          httpPort: "",
+          httpPath: "/mcp",
+        },
+      };
+
+      expect(formSchema.parse(data)).toEqual(data);
+      expect(() =>
+        formSchema.parse({
+          ...data,
+          localConfig: { ...data.localConfig, arguments: '["-y",' },
+        }),
+      ).toThrow("Arguments must be a valid JSON array or one per line.");
+      expect(() =>
+        formSchema.parse({
+          ...data,
+          localConfig: { ...data.localConfig, arguments: '["--port", 3000]' },
+        }),
+      ).toThrow("Arguments JSON must be an array of strings.");
+    });
+
     it("should validate local server with Docker image only", () => {
       const data = {
         ...baseValidData,
